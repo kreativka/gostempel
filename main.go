@@ -2,9 +2,10 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"log"
 	"os"
+	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/kreativka/reader/egothor"
@@ -12,25 +13,55 @@ import (
 )
 
 func main() {
-	f, err := os.Open("./stemmer_20000.tbl")
+	f, err := os.Open("./testData")
+	// f, err := os.Open("./output.txt")
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	in := bufio.NewReader(f)
-	stemmer := loadStemmer(in)
-
-	err = f.Close()
+	fi, err := os.Open("./stemmer_20000.tbl")
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	terms := []string{"aachen", "wkręcający", "chodzący", "walnięty", "biegnący", "biegnę", "biegną", "kochają", "żółtość", "profilaktyczny"}
+	in := bufio.NewReader(fi)
+	stemmer, err := loadStemmer(in)
 
-	for _, term := range terms {
-		fmt.Println(stem(stemmer, term))
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Fatalln("cannot load benchmark data")
+		}
+	}()
+
+	defer func() {
+		err := fi.Close()
+		if err != nil {
+			log.Fatalln("cannot load stemmer table")
+		}
+	}()
+
+	var words []string
+	i := bufio.NewScanner(f)
+	for i.Scan() {
+		t := strings.Split(i.Text(), "\n")
+		words = append(words, t[0])
 	}
 
+	startTime := time.Now()
+	var r string
+	for _, w := range words {
+		r = stem(stemmer, w)
+	}
+	stemDuration := time.Since(startTime)
+	stemDurationSeconds := float64(stemDuration) / float64(time.Second)
+	timePerWord := float64(stemDuration) / float64(len(words))
+	log.Printf("Stemmed %d words, in %.2fs (average %.2fµs/word)",
+		len(words),
+		stemDurationSeconds,
+		timePerWord/float64(time.Microsecond),
+	)
+	_ = r
 }
 
 func stem(stem *egothor.MultiTrie, token string) string {
@@ -40,7 +71,7 @@ func stem(stem *egothor.MultiTrie, token string) string {
 	}
 
 	cmd := stem.GetLastOnPath(token)
-	if cmd == "" {
+	if cmd == nil {
 		return token
 	}
 
@@ -52,55 +83,18 @@ func stem(stem *egothor.MultiTrie, token string) string {
 	return token
 }
 
-func loadStemmer(in *bufio.Reader) *egothor.MultiTrie {
-	tries := egothor.NewMultiTrie()
-
+func loadStemmer(in *bufio.Reader) (*egothor.MultiTrie, error) {
 	// Read method from file
-	// Do nothing, as we only read, and stem
-	// from given table
+	// Do nothing, as we only read standard table
+	// , and we know how to create Trie
+	// method, err := javautf.ReadUTF(in)
 	_, err := javautf.ReadUTF(in)
 	if err != nil {
 		log.Fatalln("failed to read method from file")
 	}
-
-	tries.SetForward(readBool(in))
-	// Read BY
-	readInt(in)
-
-	// Add tries
-	for i := readInt(in); i > 0; i-- {
-		// MultiTrie2 root trie
-		t := egothor.NewTrie()
-		t.SetForward(readBool(in))
-		// Read root
-		readInt(in)
-		// Set commands
-		for j := readInt(in); j > 0; j-- {
-			cmd, err := javautf.ReadUTF(in)
-			if err != nil {
-				log.Println(err)
-			}
-			// Append cmd
-			t.AddCmds(cmd)
-		}
-		// Add rows
-		for j := readInt(in); j > 0; j-- {
-			row := egothor.NewRow()
-			// Add cells
-			for k := readInt(in); k > 0; k-- {
-				ch := readChar(in)
-				cmd := readInt(in)
-				cnt := readInt(in)
-				ref := readInt(in)
-				skip := readInt(in)
-				cell := egothor.NewCell(ref, cmd, cnt, skip)
-				row.AddCell(ch, cell)
-			}
-			// Append row
-			t.AddRow(row)
-		}
-		// Append trie
-		tries.AddTrie(t)
-	}
-	return tries
+	mt := egothor.NewMultiTrie(in)
+	return mt, nil
+	// if method[0] != 'M' {
+	// }
+	// return nil, errors.New("error reading table")
 }

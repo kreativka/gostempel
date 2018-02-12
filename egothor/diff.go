@@ -6,7 +6,6 @@ package egothor
                  Copyright (C) 2002-2004 "Egothor developers"
                       on behalf of the Egothor Project.
                              All rights reserved.
-
    This  software  is  copyrighted  by  the "Egothor developers". If this
    license applies to a single file or document, the "Egothor developers"
    are the people or entities mentioned as copyright holders in that file
@@ -14,7 +13,6 @@ package egothor
    whole,  the  copyright holders are the people or entities mentioned in
    the  file CREDITS. This file can be found in the same location as this
    license in the distribution.
-
    Redistribution  and  use  in  source and binary forms, with or without
    modification, are permitted provided that the following conditions are
    met:
@@ -31,13 +29,11 @@ package egothor
     4. Products  derived  from this software may not be called "Egothor",
        nor  may  "Egothor"  appear  in  their name, without prior written
        permission from Leo.G@seznam.cz.
-
    In addition, we request that you include in the end-user documentation
    provided  with  the  redistribution  and/or  in the software itself an
    acknowledgement equivalent to the following:
    "This product includes software developed by the Egothor Project.
     http://egothor.sf.net/"
-
    THIS  SOFTWARE  IS  PROVIDED  ``AS  IS''  AND ANY EXPRESSED OR IMPLIED
    WARRANTIES,  INCLUDING,  BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
    MERCHANTABILITY  AND  FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
@@ -49,64 +45,53 @@ package egothor
    WHETHER  IN  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
    OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
    IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
    This  software  consists  of  voluntary  contributions  made  by  many
    individuals  on  behalf  of  the  Egothor  Project  and was originally
    created by Leo Galambos (Leo.G@seznam.cz).
 */
 
 // DiffApply returns string
-func DiffApply(orig string, diff string) string {
+func DiffApply(orig string, diff []rune) string {
 	// Check for word
-	if orig == "" || diff == "" {
-		return orig
-	}
-
+	// if orig == "" || diff == nil {
+	// 	return orig
+	// }
 	str := []rune(orig)
 	pos := len(str) - 1
-	// pos in string is out of bound
 	if pos < 0 {
 		return orig
 	}
-	runeDiff := []rune(diff)
 
-	for i := 0; i < len(runeDiff)/2; i++ {
-		cmd := runeDiff[2*i]
-		param := runeDiff[2*i+1]
-		parNum := param - 'a' + 1
+	var cmd, param rune
+	var parNum int
+	for i := 0; i < len(diff)/2; i++ {
+		cmd = diff[2*i]
+		param = diff[2*i+1]
+		parNum = int(param - 'a' + 1)
 		switch cmd {
 		case '-':
-			pos = pos - int(parNum) + 1
-			break
+			pos = pos - parNum + 1
 		case 'R':
-
-			if pos >= 0 {
-				str[pos] = rune(param)
-				break
-			} else {
-				// pos in string is out of bound
+			if pos < 0 {
 				return orig
 			}
+			str[pos] = param
 		case 'D':
-			o := int(pos + 1)
-			pos -= int(parNum) - 1
-			if pos >= 0 && o >= 0 {
-				str = append(str[:pos], str[o:]...)
-				break
-			} else {
-				// pos in string is out of bound
+			pos -= parNum - 1
+			if pos < 0 {
 				return orig
 			}
+			copy(str[pos:], str[pos+parNum:])
+			str[len(str)-parNum] = '\x00'
+			str = str[:len(str)-parNum]
 		case 'I':
 			pos++
 			if pos < 0 {
-				// pos in string is out of bound
 				return orig
 			}
 			str = append(str, 0)
 			copy(str[pos+1:], str[pos:])
-			str[pos] = rune(param)
-			break
+			str[pos] = param
 		}
 		pos--
 	}

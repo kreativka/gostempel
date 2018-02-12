@@ -6,7 +6,6 @@ package egothor
                  Copyright (C) 2002-2004 "Egothor developers"
                       on behalf of the Egothor Project.
                              All rights reserved.
-
    This  software  is  copyrighted  by  the "Egothor developers". If this
    license applies to a single file or document, the "Egothor developers"
    are the people or entities mentioned as copyright holders in that file
@@ -14,7 +13,6 @@ package egothor
    whole,  the  copyright holders are the people or entities mentioned in
    the  file CREDITS. This file can be found in the same location as this
    license in the distribution.
-
    Redistribution  and  use  in  source and binary forms, with or without
    modification, are permitted provided that the following conditions are
    met:
@@ -31,13 +29,11 @@ package egothor
     4. Products  derived  from this software may not be called "Egothor",
        nor  may  "Egothor"  appear  in  their name, without prior written
        permission from Leo.G@seznam.cz.
-
    In addition, we request that you include in the end-user documentation
    provided  with  the  redistribution  and/or  in the software itself an
    acknowledgement equivalent to the following:
    "This product includes software developed by the Egothor Project.
     http://egothor.sf.net/"
-
    THIS  SOFTWARE  IS  PROVIDED  ``AS  IS''  AND ANY EXPRESSED OR IMPLIED
    WARRANTIES,  INCLUDING,  BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
    MERCHANTABILITY  AND  FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
@@ -49,59 +45,113 @@ package egothor
    WHETHER  IN  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
    OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
    IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
    This  software  consists  of  voluntary  contributions  made  by  many
    individuals  on  behalf  of  the  Egothor  Project  and was originally
    created by Leo Galambos (Leo.G@seznam.cz).
 */
 
 import (
-	"strings"
+	"bufio"
+	"log"
+
+	"github.com/kreativka/reader/javaread"
+	"github.com/kreativka/reader/javautf"
 )
 
 // MultiTrie struct
 type MultiTrie struct {
-	EOM     rune
+	eom     rune
 	forward bool
-	BY      int32
+	by      int32
 	cmds    []string
 	root    int32
 	tries   []*Trie
 }
 
-// AddCmds adds cmd to cmds
-func (t *MultiTrie) AddCmds(cmd string) {
-	t.cmds = append(t.cmds, cmd)
+// Tries return
+func (m *MultiTrie) Tries() []*Trie {
+	return m.tries
+}
+
+// AddCmd adds cmd to cmds
+func (m *MultiTrie) AddCmd(cmd string) {
+	m.cmds = append(m.cmds, cmd)
 }
 
 // Cmds returns cmds
-func (t MultiTrie) Cmds() []string {
-	return t.cmds
+func (m MultiTrie) Cmds() []string {
+	return m.cmds
 }
 
 // AddTrie adds
-func (t *MultiTrie) AddTrie(trie *Trie) {
-	t.tries = append(t.tries, trie)
+func (m *MultiTrie) AddTrie(trie *Trie) {
+	m.tries = append(m.tries, trie)
 }
 
 // SetForward sets forward
-func (t *MultiTrie) SetForward(forward bool) {
-	t.forward = forward
+func (m *MultiTrie) SetForward(forward bool) {
+	m.forward = forward
 }
 
 // SetBY sets by :)
-func (t *MultiTrie) SetBY(by int32) {
-	t.BY = by
+func (m *MultiTrie) SetBY(by int32) {
+	m.by = by
 }
 
 // SetRoot sets root
-func (t *MultiTrie) SetRoot(root int32) {
-	t.root = root
+func (m *MultiTrie) SetRoot(root int32) {
+	m.root = root
+}
+
+// SetEom sets EOM
+func (m *MultiTrie) SetEom() {
+	m.eom = '*'
 }
 
 // NewMultiTrie return Trie
-func NewMultiTrie() *MultiTrie {
-	return &MultiTrie{EOM: '*', forward: false, root: 0, BY: 0}
+func NewMultiTrie(in *bufio.Reader) *MultiTrie {
+	var mt MultiTrie
+	mt.SetEom()
+	mt.SetForward(javaread.Bool(in))
+	// Read BY
+	mt.SetBY(javaread.Int(in))
+
+	// Add tries
+	for i := javaread.Int(in); i > 0; i-- {
+		// MultiTrie2 root trie
+		t := NewTrie()
+		t.SetForward(javaread.Bool(in))
+		t.SetRoot(javaread.Int(in))
+		// Set commands
+		var j int32
+		for j = javaread.Int(in); j > 0; j-- {
+			cmd, err := javautf.ReadUTF(in)
+			if err != nil {
+				log.Println(err)
+			}
+			// Append cmd
+			t.AddCmds([]rune(cmd))
+		}
+		// Add rows
+		for j = javaread.Int(in); j > 0; j-- {
+			row := NewRow()
+			// Add cells
+			for k := javaread.Int(in); k > 0; k-- {
+				ch := javaread.Char(in)
+				cmd := javaread.Int(in)
+				cnt := javaread.Int(in)
+				ref := javaread.Int(in)
+				skip := javaread.Int(in)
+				cell := NewCell(ref, cmd, cnt, skip)
+				row.AddCell(ch, cell)
+			}
+			// Append row
+			t.AddRow(row)
+		}
+		// Append trie
+		mt.AddTrie(t)
+	}
+	return &mt
 }
 
 func cannotFollow(after, goes rune) bool {
@@ -114,79 +164,71 @@ func cannotFollow(after, goes rune) bool {
 	return false
 }
 
-func (t MultiTrie) skip(in string, count int) (string, bool) {
+func (m MultiTrie) skip(in string, count int) (string, bool) {
 	runes := []rune(in)
 
 	if len(runes)-count < 0 {
 		return "", false
 	}
-	if t.forward {
+	if m.forward {
 		return string(runes[count:]), true
 	}
 	return string(runes[:len(runes)-count]), true
 }
 
-func lengthPP(cmd string) int {
-	runes := []rune(cmd)
+func lenPP(cmd []rune) int {
 	l := 0
-	for i, c := range runes {
+	for i, c := range cmd {
 		i++
 		switch c {
 		case '-':
-			l += int(runes[i]) - 'a' + 1
-			break
+			l += int(cmd[i]) - 'a' + 1
 		case 'D':
-			l += int(runes[i]) - 'a' + 1
-			break
+			l += int(cmd[i]) - 'a' + 1
 		case 'R':
 			l++
-			break
-		case 'I':
-			break
-			// }
+			// case 'I':
+			// 	break
 		}
 	}
 	return l
 }
 
 // GetLastOnPath returns something
-func (t *MultiTrie) GetLastOnPath(key string) string {
-	var result string
+func (m *MultiTrie) GetLastOnPath(key string) []rune {
+	var res []rune  // Result
+	lk := key       // Last Key
+	lc := rune(' ') // Last char
+	p := make(map[int][]rune)
 
-	lastkey := key
-	lastch := rune(' ')
-	p := make(map[int]string)
-
-	for i := 0; i < len(t.tries); i++ {
-		r, ok := t.tries[i].GetLastOnPath(lastkey)
-		if !ok || (r[0] == t.EOM && len(r) == 1) {
-			return result
+	for i := 0; i < len(m.Tries()); i++ {
+		r, ok := m.tries[i].GetLastOnPath(lk)
+		if !ok || (r[0] == m.eom && len(r) == 1) {
+			return res
 		}
 
-		if cannotFollow(lastch, r[0]) {
-			return result
+		if cannotFollow(lc, r[0]) {
+			return res
 		}
 
-		lastch = r[len(r)-2]
-
-		p[i] = string(r)
-		if strings.HasPrefix(p[i], "-") {
-			var ok bool
+		lc = r[len(r)-2]
+		p[i] = r
+		if p[i][0] == '-' {
 			if i > 0 {
-				key, ok = t.skip(key, lengthPP(p[i-1]))
-				if !ok {
-					return result
+				if key, ok = m.skip(key, lenPP(p[i-1])); !ok {
+					return res
 				}
 			}
-			key, ok = t.skip(key, lengthPP(p[i]))
-			if !ok {
-				return result
+			if key, ok = m.skip(key, lenPP(p[i])); !ok {
+				return res
+
 			}
 		}
-		result += string(r)
+		res = append(res, r...)
+
 		if len(key) != 0 {
-			lastkey = key
+			lk = key
 		}
 	}
-	return result
+	return res
 }

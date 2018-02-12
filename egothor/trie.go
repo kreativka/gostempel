@@ -6,7 +6,6 @@ package egothor
                  Copyright (C) 2002-2004 "Egothor developers"
                       on behalf of the Egothor Project.
                              All rights reserved.
-
    This  software  is  copyrighted  by  the "Egothor developers". If this
    license applies to a single file or document, the "Egothor developers"
    are the people or entities mentioned as copyright holders in that file
@@ -14,7 +13,6 @@ package egothor
    whole,  the  copyright holders are the people or entities mentioned in
    the  file CREDITS. This file can be found in the same location as this
    license in the distribution.
-
    Redistribution  and  use  in  source and binary forms, with or without
    modification, are permitted provided that the following conditions are
    met:
@@ -31,13 +29,11 @@ package egothor
     4. Products  derived  from this software may not be called "Egothor",
        nor  may  "Egothor"  appear  in  their name, without prior written
        permission from Leo.G@seznam.cz.
-
    In addition, we request that you include in the end-user documentation
    provided  with  the  redistribution  and/or  in the software itself an
    acknowledgement equivalent to the following:
    "This product includes software developed by the Egothor Project.
     http://egothor.sf.net/"
-
    THIS  SOFTWARE  IS  PROVIDED  ``AS  IS''  AND ANY EXPRESSED OR IMPLIED
    WARRANTIES,  INCLUDING,  BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
    MERCHANTABILITY  AND  FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
@@ -49,7 +45,6 @@ package egothor
    WHETHER  IN  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
    OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
    IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
    This  software  consists  of  voluntary  contributions  made  by  many
    individuals  on  behalf  of  the  Egothor  Project  and was originally
    created by Leo Galambos (Leo.G@seznam.cz).
@@ -61,11 +56,10 @@ import (
 	"github.com/kreativka/reader/stringutil"
 )
 
-// Trie s
+// Trie struct
 type Trie struct {
-	Eom     string
 	forward bool
-	cmds    []string
+	cmds    [][]rune
 	rows    []*Row
 	root    int32
 }
@@ -81,12 +75,12 @@ func (t *Trie) AddRow(row *Row) {
 }
 
 // AddCmds adds cmd to cmds
-func (t *Trie) AddCmds(cmd string) {
+func (t *Trie) AddCmds(cmd []rune) {
 	t.cmds = append(t.cmds, cmd)
 }
 
 // Cmds returns cmds
-func (t Trie) Cmds() []string {
+func (t Trie) Cmds() [][]rune {
 	return t.cmds
 }
 
@@ -105,50 +99,59 @@ func (t *Trie) SetRoot(root int32) {
 	t.root = root
 }
 
+// Root returns root
+func (t *Trie) Root() int32 {
+	return t.root
+}
+
 // GetLastOnPath returns something
 func (t Trie) GetLastOnPath(key string) ([]rune, bool) {
+	var l []rune
 	var ok bool
-	var last []rune
-	now, err := t.getRow(t.root)
+
+	now, err := t.Row(t.root)
 	if err != nil {
-		return last, ok
+		return l, ok
 	}
 
-	var w int32
 	if !t.Forward() {
 		key = stringutil.Reverse(key)
 	}
+
+	var w int32
 	for i, c := range key {
 		w = now.Cmd(c)
 		if w >= 0 {
-			last = []rune(t.cmds[w])
+			l = t.cmds[w]
 			ok = true
 		}
 		// Return from end of original function
 		// w = now.getCmd(new Character(e.next()));
 		// return (w >= 0) ? cmds.elementAt(w) : last;
 		if i > len(key) {
-			return last, ok
+			return l, ok
 		}
+
 		w = now.Ref(c)
-		if w >= 0 {
-			now, err = t.getRow(w)
+		switch {
+		case w >= 0:
+			now, err = t.Row(w)
 			if err != nil {
-				return last, ok
+				return l, ok
 			}
-		} else {
-			return last, ok
+		default:
+			return l, ok
 		}
 	}
-	return last, ok
+	return l, ok
 }
 
-// getRow returns row
-func (t Trie) getRow(i int32) (*Row, error) {
-	var err error
+// Row returns row
+func (t Trie) Row(i int32) (*Row, error) {
 	if i < 0 || i >= int32(len(t.rows)) {
-		err = fmt.Errorf("row %d not found not found", i)
+		// err = fmt.Errorf("row %d not found not found", i)
+		err := fmt.Errorf("row not found")
 		return nil, err
 	}
-	return t.rows[i], err
+	return t.rows[i], nil
 }

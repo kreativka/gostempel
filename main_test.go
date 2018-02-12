@@ -49,7 +49,7 @@ func makeTests() {
 	}
 
 	in := bufio.NewReader(fi)
-	stemmer = loadStemmer(in)
+	stemmer, _ = loadStemmer(in)
 }
 
 var stemmer *egothor.MultiTrie
@@ -63,3 +63,17 @@ func TestStem(t *testing.T) {
 		}
 	}
 }
+
+func benchmarkStem(s string, b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		stem(stemmer, s)
+	}
+}
+
+func BenchmarkStemPowyciagajacy(b *testing.B)  { benchmarkStem("powyciągający", b) }
+func BenchmarkStemAchen(b *testing.B)          { benchmarkStem("aachen", b) }
+func BenchmarkStemCiupciajacy(b *testing.B)    { benchmarkStem("ciupciający", b) }
+func BenchmarkStemZmiim(b *testing.B)          { benchmarkStem("żmiim", b) }
+func BenchmarkStemKupilem(b *testing.B)        { benchmarkStem("kupiłem", b) }
+func BenchmarkStemUderzajac(b *testing.B)      { benchmarkStem("uderzając", b) }
+func BenchmarkStemNiedokrwistosc(b *testing.B) { benchmarkStem("niedokrwistość", b) }
