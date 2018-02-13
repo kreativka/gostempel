@@ -54,8 +54,8 @@ import (
 	"bufio"
 	"log"
 
-	"github.com/kreativka/reader/javaread"
-	"github.com/kreativka/reader/javautf"
+	"github.com/kreativka/gostempel/javaread"
+	"github.com/kreativka/gostempel/javautf"
 )
 
 // MultiTrie struct

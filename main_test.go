@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kreativka/reader/egothor"
+	"github.com/kreativka/gostempel/egothor"
 )
 
 type sTest struct {

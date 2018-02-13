@@ -8,8 +8,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/kreativka/reader/egothor"
-	"github.com/kreativka/reader/javautf"
+	"github.com/kreativka/gostempel/egothor"
+	"github.com/kreativka/gostempel/javautf"
 )
 
 func main() {

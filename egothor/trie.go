@@ -53,7 +53,7 @@ package egothor
 import (
 	"fmt"
 
-	"github.com/kreativka/reader/stringutil"
+	"github.com/kreativka/gostempel/stringutil"
 )
 
 // Trie struct
