@@ -1,5 +1,11 @@
 package egothor
 
+import (
+	"io"
+
+	"github.com/kreativka/gostempel/javaread"
+)
+
 /*
                     Egothor Software License version 1.00
                     Copyright (C) 1997-2004 Leo Galambos.
@@ -56,8 +62,17 @@ type Row struct {
 }
 
 // NewRow returns row
-func NewRow() *Row {
-	return &Row{cells: make(map[rune]*Cell)}
+func NewRow(in io.Reader) *Row {
+	r := Row{cells: make(map[rune]*Cell)}
+	for k := javaread.Int(in); k > 0; k-- {
+		ch := javaread.Char(in)
+		cmd := javaread.Int(in)
+		cnt := javaread.Int(in)
+		ref := javaread.Int(in)
+		skip := javaread.Int(in)
+		r.AddCell(ch, NewCell(ref, cmd, cnt, skip))
+	}
+	return &r
 }
 
 // AddCell appends cell
@@ -82,16 +97,21 @@ func (r Row) getCellValue(c rune, field string) int32 {
 	if !ok {
 		return -1
 	}
-	switch field {
-	case "cmd":
+
+	if field == "cmd" {
 		return cell.Cmd()
-	case "cnt":
-		return cell.Cnt()
-	case "ref":
-		return cell.Ref()
-	case "skip":
-		return cell.Skip()
-	default:
-		return -1
 	}
+	return cell.Ref()
+	// switch field {
+	// case "cmd":
+	// 	return cell.Cmd()
+	// case "cnt":
+	// 	return cell.Cnt()
+	// case "ref":
+	// 	return cell.Ref()
+	// case "skip":
+	// 	return cell.Skip()
+	// default:
+	// 	return -1
+	// }
 }

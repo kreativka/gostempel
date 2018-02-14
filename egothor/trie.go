@@ -52,21 +52,47 @@ package egothor
 
 import (
 	"fmt"
+	"io"
+	"log"
 
-	"github.com/kreativka/gostempel/stringutil"
+	"github.com/kreativka/gostempel/javaread"
+	"github.com/kreativka/gostempel/javautf"
 )
 
-// Trie struct
+// Tries wraps tries
+type Tries interface {
+	GetLastOnPath(string) ([]rune, bool)
+	SetForward(bool)
+	SetRoot(int32)
+}
+
+// Trie implements Tries interface
 type Trie struct {
-	forward bool
 	cmds    [][]rune
-	rows    []*Row
+	forward bool
 	root    int32
+	rows    []*Row
 }
 
 // NewTrie returns trie
-func NewTrie() *Trie {
-	return &Trie{}
+func NewTrie(in io.Reader) *Trie {
+	t := Trie{}
+
+	t.SetForward(javaread.Bool(in))
+	t.SetRoot(javaread.Int(in))
+
+	for j := javaread.Int(in); j > 0; j-- {
+		cmd, err := javautf.ReadUTF(in)
+		if err != nil {
+			log.Println(err)
+		}
+		t.AddCmds([]rune(cmd))
+	}
+
+	for j := javaread.Int(in); j > 0; j-- {
+		t.AddRow(NewRow(in))
+	}
+	return &t
 }
 
 // AddRow adds row
@@ -79,9 +105,9 @@ func (t *Trie) AddCmds(cmd []rune) {
 	t.cmds = append(t.cmds, cmd)
 }
 
-// Cmds returns cmds
-func (t Trie) Cmds() [][]rune {
-	return t.cmds
+// Cmd returns cmds
+func (t Trie) Cmd(i int32) []rune {
+	return t.cmds[i]
 }
 
 // SetForward sets forward
@@ -104,53 +130,48 @@ func (t *Trie) Root() int32 {
 	return t.root
 }
 
-// GetLastOnPath returns something
+// GetLastOnPath returns patch commands
 func (t Trie) GetLastOnPath(key string) ([]rune, bool) {
-	var l []rune
+	var l []rune // last
 	var ok bool
 
+	// Get row
 	now, err := t.Row(t.root)
 	if err != nil {
 		return l, ok
 	}
 
-	if !t.Forward() {
-		key = stringutil.Reverse(key)
-	}
-
 	var w int32
-	for i, c := range key {
+	se := NewStrEnum(key, t.Forward())
+	for i := 0; i < se.Len()-1; i++ {
+		c := se.Next()
 		w = now.Cmd(c)
 		if w >= 0 {
-			l = t.cmds[w]
+			l = t.Cmd(w)
 			ok = true
-		}
-		// Return from end of original function
-		// w = now.getCmd(new Character(e.next()));
-		// return (w >= 0) ? cmds.elementAt(w) : last;
-		if i > len(key) {
-			return l, ok
 		}
 
 		w = now.Ref(c)
-		switch {
-		case w >= 0:
+		if w >= 0 {
 			now, err = t.Row(w)
 			if err != nil {
 				return l, ok
 			}
-		default:
+		} else {
 			return l, ok
 		}
+	}
+	w = now.Cmd(se.Next())
+	if w >= 0 {
+		return t.Cmd(w), true
 	}
 	return l, ok
 }
 
-// Row returns row
+// Row returns row from trie
 func (t Trie) Row(i int32) (*Row, error) {
 	if i < 0 || i >= int32(len(t.rows)) {
-		// err = fmt.Errorf("row %d not found not found", i)
-		err := fmt.Errorf("row not found")
+		err := fmt.Errorf("row %d not found", i)
 		return nil, err
 	}
 	return t.rows[i], nil

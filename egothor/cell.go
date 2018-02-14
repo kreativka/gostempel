@@ -72,13 +72,3 @@ func (c Cell) Cmd() int32 {
 func (c Cell) Ref() int32 {
 	return c.ref
 }
-
-// Skip returns skip from cell
-func (c Cell) Skip() int32 {
-	return c.skip
-}
-
-// Cnt returns cnt from cell
-func (c Cell) Cnt() int32 {
-	return c.cnt
-}

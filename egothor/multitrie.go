@@ -51,56 +51,47 @@ package egothor
 */
 
 import (
-	"bufio"
-	"log"
+	"io"
 
 	"github.com/kreativka/gostempel/javaread"
-	"github.com/kreativka/gostempel/javautf"
 )
 
 // MultiTrie struct
 type MultiTrie struct {
+	by      int32
 	eom     rune
 	forward bool
-	by      int32
-	cmds    []string
 	root    int32
 	tries   []*Trie
 }
 
-// Tries return
+// NewMultiTrie returns MultiTrie
+func NewMultiTrie(in io.Reader) *MultiTrie {
+	var mt MultiTrie
+
+	mt.SetEom()
+	mt.SetForward(javaread.Bool(in))
+	mt.SetBY(javaread.Int(in))
+
+	for i := javaread.Int(in); i > 0; i-- {
+		mt.Add(NewTrie(in))
+	}
+	return &mt
+}
+
+// Tries return tries
 func (m *MultiTrie) Tries() []*Trie {
 	return m.tries
 }
 
-// AddCmd adds cmd to cmds
-func (m *MultiTrie) AddCmd(cmd string) {
-	m.cmds = append(m.cmds, cmd)
-}
-
-// Cmds returns cmds
-func (m MultiTrie) Cmds() []string {
-	return m.cmds
-}
-
-// AddTrie adds
-func (m *MultiTrie) AddTrie(trie *Trie) {
+// Add appends trie to tries
+func (m *MultiTrie) Add(trie *Trie) {
 	m.tries = append(m.tries, trie)
 }
 
-// SetForward sets forward
-func (m *MultiTrie) SetForward(forward bool) {
-	m.forward = forward
-}
-
-// SetBY sets by :)
+// SetBY sets BY
 func (m *MultiTrie) SetBY(by int32) {
 	m.by = by
-}
-
-// SetRoot sets root
-func (m *MultiTrie) SetRoot(root int32) {
-	m.root = root
 }
 
 // SetEom sets EOM
@@ -108,57 +99,56 @@ func (m *MultiTrie) SetEom() {
 	m.eom = '*'
 }
 
-// NewMultiTrie return Trie
-func NewMultiTrie(in *bufio.Reader) *MultiTrie {
-	var mt MultiTrie
-	mt.SetEom()
-	mt.SetForward(javaread.Bool(in))
-	// Read BY
-	mt.SetBY(javaread.Int(in))
+// SetForward sets forward
+func (m *MultiTrie) SetForward(forward bool) {
+	m.forward = forward
+}
 
-	// Add tries
-	for i := javaread.Int(in); i > 0; i-- {
-		// MultiTrie2 root trie
-		t := NewTrie()
-		t.SetForward(javaread.Bool(in))
-		t.SetRoot(javaread.Int(in))
-		// Set commands
-		var j int32
-		for j = javaread.Int(in); j > 0; j-- {
-			cmd, err := javautf.ReadUTF(in)
-			if err != nil {
-				log.Println(err)
-			}
-			// Append cmd
-			t.AddCmds([]rune(cmd))
+// SetRoot sets root index of trie
+func (m *MultiTrie) SetRoot(root int32) {
+	m.root = root
+}
+
+// GetLastOnPath returns patch commands
+func (m *MultiTrie) GetLastOnPath(key string) ([]rune, bool) {
+	var res []rune            // Result
+	lk := key                 // Last Key
+	lc := rune(' ')           // Last char
+	p := make(map[int][]rune) // Patch commands
+
+	for i := 0; i < len(m.Tries()); i++ {
+		r, ok := m.tries[i].GetLastOnPath(lk)
+		if !ok || (r[0] == m.eom && len(r) == 1) {
+			return res, true
 		}
-		// Add rows
-		for j = javaread.Int(in); j > 0; j-- {
-			row := NewRow()
-			// Add cells
-			for k := javaread.Int(in); k > 0; k-- {
-				ch := javaread.Char(in)
-				cmd := javaread.Int(in)
-				cnt := javaread.Int(in)
-				ref := javaread.Int(in)
-				skip := javaread.Int(in)
-				cell := NewCell(ref, cmd, cnt, skip)
-				row.AddCell(ch, cell)
-			}
-			// Append row
-			t.AddRow(row)
+
+		if cannotFollow(lc, r[0]) {
+			return res, false
 		}
-		// Append trie
-		mt.AddTrie(t)
+		lc = r[len(r)-2]
+
+		p[i] = r
+		if p[i][0] == '-' {
+			if i > 0 {
+				if key, ok = m.skip(key, lenPP(p[i-1])); !ok {
+					return res, true
+				}
+			}
+			if key, ok = m.skip(key, lenPP(p[i])); !ok {
+				return res, true
+			}
+		}
+		res = append(res, r...)
+
+		if len(key) != 0 {
+			lk = key
+		}
 	}
-	return &mt
+	return res, true
 }
 
 func cannotFollow(after, goes rune) bool {
-	switch after {
-	case '-':
-		return after == goes
-	case 'D':
+	if after == '-' || after == 'D' {
 		return after == goes
 	}
 	return false
@@ -170,6 +160,7 @@ func (m MultiTrie) skip(in string, count int) (string, bool) {
 	if len(runes)-count < 0 {
 		return "", false
 	}
+
 	if m.forward {
 		return string(runes[count:]), true
 	}
@@ -177,7 +168,7 @@ func (m MultiTrie) skip(in string, count int) (string, bool) {
 }
 
 func lenPP(cmd []rune) int {
-	l := 0
+	l := 0 // length
 	for i, c := range cmd {
 		i++
 		switch c {
@@ -187,48 +178,7 @@ func lenPP(cmd []rune) int {
 			l += int(cmd[i]) - 'a' + 1
 		case 'R':
 			l++
-			// case 'I':
-			// 	break
 		}
 	}
 	return l
-}
-
-// GetLastOnPath returns something
-func (m *MultiTrie) GetLastOnPath(key string) []rune {
-	var res []rune  // Result
-	lk := key       // Last Key
-	lc := rune(' ') // Last char
-	p := make(map[int][]rune)
-
-	for i := 0; i < len(m.Tries()); i++ {
-		r, ok := m.tries[i].GetLastOnPath(lk)
-		if !ok || (r[0] == m.eom && len(r) == 1) {
-			return res
-		}
-
-		if cannotFollow(lc, r[0]) {
-			return res
-		}
-
-		lc = r[len(r)-2]
-		p[i] = r
-		if p[i][0] == '-' {
-			if i > 0 {
-				if key, ok = m.skip(key, lenPP(p[i-1])); !ok {
-					return res
-				}
-			}
-			if key, ok = m.skip(key, lenPP(p[i])); !ok {
-				return res
-
-			}
-		}
-		res = append(res, r...)
-
-		if len(key) != 0 {
-			lk = key
-		}
-	}
-	return res
 }
