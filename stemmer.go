@@ -1,10 +1,8 @@
 package gostempel
 
 import (
-	"bufio"
 	"os"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/kreativka/gostempel/egothor"
 	"github.com/kreativka/gostempel/javautf"
@@ -14,9 +12,9 @@ import (
 const minTokenLength = 3
 
 // Stem returns stem from given token
-func Stem(stem egothor.Tries, token string) string {
+func Stem(stem egothor.Tries, token []rune) []rune {
 	// Don't stem tokens less than 3 chars and empty tokens
-	if token == "" || utf8.RuneCountInString(token) <= minTokenLength {
+	if token == nil || len(token) <= minTokenLength {
 		return token
 	}
 
@@ -44,16 +42,22 @@ func LoadStemmer(filename string) (egothor.Tries, error) {
 		_ = f.Close()
 	}()
 
-	in := bufio.NewReader(f)
-
 	// Read method from stem file
-	m, err := javautf.ReadUTF(in)
+	m, err := javautf.ReadUTF(f)
 	if err != nil {
 		return nil, err
 	}
-
 	if strings.HasPrefix(m, "-0ME2") {
-		return egothor.NewMultiTrie(in), nil
+		t, err := egothor.NewMultiTrie(f)
+		if err != nil {
+			return nil, err
+		}
+		return t, nil
+
 	}
-	return egothor.NewTrie(in), nil
+	t, err := egothor.NewTrie(f)
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
 }

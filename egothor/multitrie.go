@@ -51,9 +51,8 @@ package egothor
 */
 
 import (
+	"encoding/binary"
 	"io"
-
-	"github.com/kreativka/gostempel/javaread"
 )
 
 // MultiTrie struct
@@ -66,22 +65,37 @@ type MultiTrie struct {
 }
 
 // NewMultiTrie returns MultiTrie
-func NewMultiTrie(in io.Reader) *MultiTrie {
+func NewMultiTrie(r io.Reader) (*MultiTrie, error) {
 	var mt MultiTrie
+	mt.eom = '*'
 
-	mt.SetEom()
-	mt.SetForward(javaread.Bool(in))
-	mt.SetBY(javaread.Int(in))
-
-	for i := javaread.Int(in); i > 0; i-- {
-		mt.Add(NewTrie(in))
+	// Set forward
+	err := binary.Read(r, binary.BigEndian, &mt.forward)
+	if err != nil {
+		return nil, err
 	}
-	return &mt
-}
 
-// Tries return tries
-func (m *MultiTrie) Tries() []*Trie {
-	return m.tries
+	// Set by
+	err = binary.Read(r, binary.BigEndian, &mt.by)
+	if err != nil {
+		return nil, err
+	}
+
+	var i int32
+	err = binary.Read(r, binary.BigEndian, &i)
+	if err != nil {
+		return nil, err
+	}
+
+	for ; i > 0; i-- {
+		t, err := NewTrie(r)
+		if err != nil {
+			return nil, err
+		}
+
+		mt.Add(t)
+	}
+	return &mt, nil
 }
 
 // Add appends trie to tries
@@ -89,34 +103,14 @@ func (m *MultiTrie) Add(trie *Trie) {
 	m.tries = append(m.tries, trie)
 }
 
-// SetBY sets BY
-func (m *MultiTrie) SetBY(by int32) {
-	m.by = by
-}
-
-// SetEom sets EOM
-func (m *MultiTrie) SetEom() {
-	m.eom = '*'
-}
-
-// SetForward sets forward
-func (m *MultiTrie) SetForward(forward bool) {
-	m.forward = forward
-}
-
-// SetRoot sets root index of trie
-func (m *MultiTrie) SetRoot(root int32) {
-	m.root = root
-}
-
 // GetLastOnPath returns patch commands
-func (m *MultiTrie) GetLastOnPath(key string) ([]rune, bool) {
+func (m *MultiTrie) GetLastOnPath(key []rune) ([]rune, bool) {
 	var res []rune            // Result
 	lk := key                 // Last Key
 	lc := rune(' ')           // Last char
 	p := make(map[int][]rune) // Patch commands
 
-	for i := 0; i < len(m.Tries()); i++ {
+	for i := 0; i < len(m.tries); i++ {
 		r, ok := m.tries[i].GetLastOnPath(lk)
 		if !ok || (r[0] == m.eom && len(r) == 1) {
 			return res, true
@@ -154,17 +148,17 @@ func cannotFollow(after, goes rune) bool {
 	return false
 }
 
-func (m MultiTrie) skip(in string, count int) (string, bool) {
-	runes := []rune(in)
+func (m MultiTrie) skip(in []rune, count int) ([]rune, bool) {
+	// runes := in
 
-	if len(runes)-count < 0 {
-		return "", false
+	if len(in)-count < 0 {
+		return []rune(""), false
 	}
 
 	if m.forward {
-		return string(runes[count:]), true
+		return in[count:], true
 	}
-	return string(runes[:len(runes)-count]), true
+	return in[:len(in)-count], true
 }
 
 func lenPP(cmd []rune) int {

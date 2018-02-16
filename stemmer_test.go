@@ -68,8 +68,8 @@ var stemmer, _ = LoadStemmer(f)
 
 func TestStem(t *testing.T) {
 	for _, tt := range stemTest {
-		s := Stem(stemmer, tt.in)
-		if s != tt.out {
+		s := Stem(stemmer, []rune(tt.in))
+		if string(s) != tt.out {
 			t.Errorf("stem(%q) => %q, want %q", tt.in, s, tt.out)
 		}
 	}
@@ -81,16 +81,16 @@ func BenchmarkLoadStemmer(b *testing.B) {
 	}
 }
 
-func benchmarkStem(s string, b *testing.B) {
+func benchmarkStem(s []rune, b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		Stem(stemmer, s)
 	}
 }
 
-func BenchmarkStemPowyciagajacy(b *testing.B)  { benchmarkStem("powyciągający", b) }
-func BenchmarkStemAchen(b *testing.B)          { benchmarkStem("aachen", b) }
-func BenchmarkStemCiupciajacy(b *testing.B)    { benchmarkStem("ciupciający", b) }
-func BenchmarkStemZmiim(b *testing.B)          { benchmarkStem("żmiim", b) }
-func BenchmarkStemKupilem(b *testing.B)        { benchmarkStem("kupiłem", b) }
-func BenchmarkStemUderzajac(b *testing.B)      { benchmarkStem("uderzając", b) }
-func BenchmarkStemNiedokrwistosc(b *testing.B) { benchmarkStem("niedokrwistość", b) }
+func BenchmarkStemPowyciagajacy(b *testing.B)  { benchmarkStem([]rune("powyciągający"), b) }
+func BenchmarkStemAchen(b *testing.B)          { benchmarkStem([]rune("aachen"), b) }
+func BenchmarkStemCiupciajacy(b *testing.B)    { benchmarkStem([]rune("ciupciający"), b) }
+func BenchmarkStemZmiim(b *testing.B)          { benchmarkStem([]rune("żmiim"), b) }
+func BenchmarkStemKupilem(b *testing.B)        { benchmarkStem([]rune("kupiłem"), b) }
+func BenchmarkStemUderzajac(b *testing.B)      { benchmarkStem([]rune("uderzając"), b) }
+func BenchmarkStemNiedokrwistosc(b *testing.B) { benchmarkStem([]rune("niedokrwistość"), b) }

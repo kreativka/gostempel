@@ -51,23 +51,20 @@ package egothor
 */
 
 // DiffApply returns string
-func DiffApply(orig string, diff []rune) string {
+func DiffApply(orig []rune, diff []rune) []rune {
 	// Check for word
 	// if orig == "" || diff == nil {
 	// 	return orig
 	// }
-	str := []rune(orig)
+	str := orig
 	pos := len(str) - 1
 	if pos < 0 {
 		return orig
 	}
 
-	var cmd, param rune
-	var parNum int
 	for i := 0; i < len(diff)/2; i++ {
-		cmd = diff[2*i]
-		param = diff[2*i+1]
-		parNum = int(param - 'a' + 1)
+		cmd, param := diff[2*i], diff[2*i+1]
+		parNum := int(param - 'a' + 1)
 		switch cmd {
 		case '-':
 			pos = pos - parNum + 1
@@ -95,5 +92,5 @@ func DiffApply(orig string, diff []rune) string {
 		}
 		pos--
 	}
-	return string(str)
+	return str
 }

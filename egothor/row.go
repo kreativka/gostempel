@@ -1,9 +1,8 @@
 package egothor
 
 import (
+	"encoding/binary"
 	"io"
-
-	"github.com/kreativka/gostempel/javaread"
 )
 
 /*
@@ -58,25 +57,36 @@ import (
 
 // Row struct
 type Row struct {
-	cells map[rune]*Cell
+	cells map[rune]Cell
 }
 
 // NewRow returns row
-func NewRow(in io.Reader) *Row {
-	r := Row{cells: make(map[rune]*Cell)}
-	for k := javaread.Int(in); k > 0; k-- {
-		ch := javaread.Char(in)
-		cmd := javaread.Int(in)
-		cnt := javaread.Int(in)
-		ref := javaread.Int(in)
-		skip := javaread.Int(in)
-		r.AddCell(ch, NewCell(ref, cmd, cnt, skip))
+func NewRow(in io.Reader) (*Row, error) {
+	r := Row{cells: make(map[rune]Cell)}
+	var i int32
+	var ch int16
+	var c Cell
+
+	err := binary.Read(in, binary.BigEndian, &i)
+	if err != nil {
+		return nil, err
 	}
-	return &r
+	for ; i > 0; i-- {
+		err := binary.Read(in, binary.BigEndian, &ch)
+		if err != nil {
+			return nil, err
+		}
+		err = binary.Read(in, binary.BigEndian, &c)
+		if err != nil {
+			return nil, err
+		}
+		r.AddCell(rune(ch), c)
+	}
+	return &r, nil
 }
 
 // AddCell appends cell
-func (r *Row) AddCell(c rune, cell *Cell) {
+func (r *Row) AddCell(c rune, cell Cell) {
 	r.cells[c] = cell
 }
 
@@ -99,9 +109,9 @@ func (r Row) getCellValue(c rune, field string) int32 {
 	}
 
 	if field == "cmd" {
-		return cell.Cmd()
+		return cell.Cmd
 	}
-	return cell.Ref()
+	return cell.Ref
 	// switch field {
 	// case "cmd":
 	// 	return cell.Cmd()

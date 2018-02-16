@@ -58,20 +58,15 @@ type StrEnum struct {
 }
 
 // NewStrEnum returns new StrEnum
-func NewStrEnum(token string, up bool) *StrEnum {
-	s := StrEnum{str: []rune(token)}
+func NewStrEnum(token []rune, up bool) *StrEnum {
+	s := StrEnum{str: token}
 	if up {
 		s.from = 0
 		s.by = 1
 	}
-	s.from = s.Len() - 1
+	s.from = len(token) - 1
 	s.by = -1
 	return &s
-}
-
-// Len returns length of []rune(token)
-func (s *StrEnum) Len() int {
-	return len(s.str)
 }
 
 // Next returns rune from []rune

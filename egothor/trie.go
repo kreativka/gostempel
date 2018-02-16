@@ -51,19 +51,16 @@ package egothor
 */
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 
-	"github.com/kreativka/gostempel/javaread"
 	"github.com/kreativka/gostempel/javautf"
 )
 
 // Tries wraps tries
 type Tries interface {
-	GetLastOnPath(string) ([]rune, bool)
-	SetForward(bool)
-	SetRoot(int32)
+	GetLastOnPath([]rune) ([]rune, bool)
 }
 
 // Trie implements Tries interface
@@ -75,24 +72,47 @@ type Trie struct {
 }
 
 // NewTrie returns trie
-func NewTrie(in io.Reader) *Trie {
+func NewTrie(in io.Reader) (*Trie, error) {
 	t := Trie{}
 
-	t.SetForward(javaread.Bool(in))
-	t.SetRoot(javaread.Int(in))
+	err := binary.Read(in, binary.BigEndian, &t.forward)
+	if err != nil {
+		return nil, err
+	}
 
-	for j := javaread.Int(in); j > 0; j-- {
+	err = binary.Read(in, binary.BigEndian, &t.root)
+	if err != nil {
+		return nil, err
+	}
+
+	var i int32
+	err = binary.Read(in, binary.BigEndian, &i)
+	if err != nil {
+		return nil, err
+	}
+
+	for ; i > 0; i-- {
 		cmd, err := javautf.ReadUTF(in)
 		if err != nil {
-			log.Println(err)
+			return nil, err
 		}
 		t.AddCmds([]rune(cmd))
 	}
 
-	for j := javaread.Int(in); j > 0; j-- {
-		t.AddRow(NewRow(in))
+	err = binary.Read(in, binary.BigEndian, &i)
+	if err != nil {
+		return nil, err
 	}
-	return &t
+
+	for ; i > 0; i-- {
+		r, err := NewRow(in)
+		if err != nil {
+			return nil, err
+		}
+
+		t.AddRow(r)
+	}
+	return &t, nil
 }
 
 // AddRow adds row
@@ -105,33 +125,8 @@ func (t *Trie) AddCmds(cmd []rune) {
 	t.cmds = append(t.cmds, cmd)
 }
 
-// Cmd returns cmds
-func (t Trie) Cmd(i int32) []rune {
-	return t.cmds[i]
-}
-
-// SetForward sets forward
-func (t *Trie) SetForward(forward bool) {
-	t.forward = forward
-}
-
-// Forward returns forward
-func (t Trie) Forward() bool {
-	return t.forward
-}
-
-// SetRoot sets root
-func (t *Trie) SetRoot(root int32) {
-	t.root = root
-}
-
-// Root returns root
-func (t *Trie) Root() int32 {
-	return t.root
-}
-
 // GetLastOnPath returns patch commands
-func (t Trie) GetLastOnPath(key string) ([]rune, bool) {
+func (t Trie) GetLastOnPath(key []rune) ([]rune, bool) {
 	var l []rune // last
 	var ok bool
 
@@ -142,12 +137,12 @@ func (t Trie) GetLastOnPath(key string) ([]rune, bool) {
 	}
 
 	var w int32
-	se := NewStrEnum(key, t.Forward())
-	for i := 0; i < se.Len()-1; i++ {
+	se := NewStrEnum(key, t.forward)
+	for i := 0; i < len(key)-1; i++ {
 		c := se.Next()
 		w = now.Cmd(c)
 		if w >= 0 {
-			l = t.Cmd(w)
+			l = t.cmds[w]
 			ok = true
 		}
 
@@ -163,7 +158,7 @@ func (t Trie) GetLastOnPath(key string) ([]rune, bool) {
 	}
 	w = now.Cmd(se.Next())
 	if w >= 0 {
-		return t.Cmd(w), true
+		return t.cmds[w], true
 	}
 	return l, ok
 }
