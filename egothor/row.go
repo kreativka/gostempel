@@ -49,7 +49,6 @@
 package egothor
 
 import (
-	"encoding/binary"
 	"io"
 )
 
@@ -59,28 +58,24 @@ type Row struct {
 }
 
 // NewRow returns row
-func NewRow(in io.Reader) (*Row, error) {
-	r := Row{cells: make(map[rune]Cell)}
+func NewRow(r io.Reader) (*Row, error) {
+	nr := Row{cells: make(map[rune]Cell)}
+	br := &errBinaryReader{r: r}
 	var i int32
 	var ch int16
 	var c Cell
 
-	err := binary.Read(in, binary.BigEndian, &i)
+	br.Read(&i)
+	for ; i > 0; i-- {
+		br.Read(&ch)
+		br.Read(&c)
+		nr.AddCell(rune(ch), c)
+	}
+	err := br.Err()
 	if err != nil {
 		return nil, err
 	}
-	for ; i > 0; i-- {
-		err := binary.Read(in, binary.BigEndian, &ch)
-		if err != nil {
-			return nil, err
-		}
-		err = binary.Read(in, binary.BigEndian, &c)
-		if err != nil {
-			return nil, err
-		}
-		r.AddCell(rune(ch), c)
-	}
-	return &r, nil
+	return &nr, nil
 }
 
 // AddCell appends cell

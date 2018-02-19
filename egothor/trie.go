@@ -49,7 +49,6 @@
 package egothor
 
 import (
-	"encoding/binary"
 	"fmt"
 	"io"
 
@@ -70,45 +69,34 @@ type Trie struct {
 }
 
 // NewTrie returns trie
-func NewTrie(in io.Reader) (*Trie, error) {
+func NewTrie(r io.Reader) (*Trie, error) {
 	t := Trie{}
-
-	err := binary.Read(in, binary.BigEndian, &t.forward)
-	if err != nil {
-		return nil, err
-	}
-
-	err = binary.Read(in, binary.BigEndian, &t.root)
-	if err != nil {
-		return nil, err
-	}
+	br := &errBinaryReader{r: r}
+	br.Read(&t.forward)
+	br.Read(&t.root)
 
 	var i int32
-	err = binary.Read(in, binary.BigEndian, &i)
-	if err != nil {
-		return nil, err
-	}
-
+	br.Read(&i)
 	for ; i > 0; i-- {
-		cmd, err := javautf.ReadUTF(in)
+		cmd, err := javautf.ReadUTF(r)
 		if err != nil {
 			return nil, err
 		}
 		t.AddCmds([]rune(cmd))
 	}
 
-	err = binary.Read(in, binary.BigEndian, &i)
-	if err != nil {
-		return nil, err
-	}
-
+	br.Read(&i)
 	for ; i > 0; i-- {
-		r, err := NewRow(in)
+		nr, err := NewRow(r)
 		if err != nil {
 			return nil, err
 		}
 
-		t.AddRow(r)
+		t.AddRow(nr)
+	}
+	err := br.Err()
+	if err != nil {
+		return nil, err
 	}
 	return &t, nil
 }
@@ -128,7 +116,6 @@ func (t Trie) GetLastOnPath(key []rune) ([]rune, bool) {
 	var l []rune // last
 	var ok bool
 
-	// Get row
 	now, err := t.Row(t.root)
 	if err != nil {
 		return l, ok

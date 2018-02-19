@@ -49,7 +49,6 @@
 package egothor
 
 import (
-	"encoding/binary"
 	"io"
 )
 
@@ -58,33 +57,20 @@ type MultiTrie struct {
 	by      int32
 	eom     rune
 	forward bool
-	root    int32
 	tries   []*Trie
 }
 
 // NewMultiTrie returns MultiTrie
 func NewMultiTrie(r io.Reader) (*MultiTrie, error) {
 	var mt MultiTrie
+	br := &errBinaryReader{r: r}
 	mt.eom = '*'
 
-	// Set forward
-	err := binary.Read(r, binary.BigEndian, &mt.forward)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set by
-	err = binary.Read(r, binary.BigEndian, &mt.by)
-	if err != nil {
-		return nil, err
-	}
+	br.Read(&mt.forward)
+	br.Read(&mt.by)
 
 	var i int32
-	err = binary.Read(r, binary.BigEndian, &i)
-	if err != nil {
-		return nil, err
-	}
-
+	br.Read(&i)
 	for ; i > 0; i-- {
 		t, err := NewTrie(r)
 		if err != nil {
@@ -92,6 +78,10 @@ func NewMultiTrie(r io.Reader) (*MultiTrie, error) {
 		}
 
 		mt.Add(t)
+	}
+	err := br.Err()
+	if err != nil {
+		return nil, err
 	}
 	return &mt, nil
 }
@@ -147,8 +137,6 @@ func cannotFollow(after, goes rune) bool {
 }
 
 func (m MultiTrie) skip(in []rune, count int) ([]rune, bool) {
-	// runes := in
-
 	if len(in)-count < 0 {
 		return []rune(""), false
 	}
