@@ -66,7 +66,11 @@ func NewMultiTrie(r io.Reader) (*MultiTrie, error) {
 	br := &errBinaryReader{r: r}
 	mt.eom = '*'
 
-	br.Read(&mt.forward)
+	// Boilerplate for reading bools on go 1.7
+	var fr uint8
+	br.Read(&fr)
+	mt.forward = !(fr == 0)
+	// br.Read(&mt.forward)
 	br.Read(&mt.by)
 
 	var i int32

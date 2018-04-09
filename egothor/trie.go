@@ -72,7 +72,12 @@ type Trie struct {
 func NewTrie(r io.Reader) (*Trie, error) {
 	t := Trie{}
 	br := &errBinaryReader{r: r}
-	br.Read(&t.forward)
+
+	// Boilerplate for reading bools on go 1.7
+	var fr uint8
+	br.Read(&fr)
+	t.forward = !(fr == 0)
+	// br.Read(&t.forward)
 	br.Read(&t.root)
 
 	var i int32
