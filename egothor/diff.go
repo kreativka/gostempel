@@ -50,12 +50,10 @@ package egothor
 
 // DiffApply returns string
 func DiffApply(orig []rune, diff []rune) []rune {
-	// Check for word
-	// if orig == "" || diff == nil {
-	// 	return orig
-	// }
-	str := orig
-	pos := len(str) - 1
+	if len(diff) == 0 {
+		return orig
+	}
+	pos := len(orig) - 1
 	if pos < 0 {
 		return orig
 	}
@@ -67,28 +65,28 @@ func DiffApply(orig []rune, diff []rune) []rune {
 		case '-':
 			pos = pos - parNum + 1
 		case 'R':
-			if pos < 0 {
+			if pos < 0 || pos >= len(orig) {
 				return orig
 			}
-			str[pos] = param
+			orig[pos] = param
 		case 'D':
 			pos -= parNum - 1
-			if pos < 0 {
+			if pos < 0 || pos >= len(orig) {
 				return orig
 			}
-			copy(str[pos:], str[pos+parNum:])
-			str[len(str)-parNum] = '\x00'
-			str = str[:len(str)-parNum]
+			copy(orig[pos:], orig[pos+parNum:])
+			orig[len(orig)-parNum] = '\x00'
+			orig = orig[:len(orig)-parNum]
 		case 'I':
 			pos++
 			if pos < 0 {
 				return orig
 			}
-			str = append(str, 0)
-			copy(str[pos+1:], str[pos:])
-			str[pos] = param
+			orig = append(orig, 0)
+			copy(orig[pos+1:], orig[pos:])
+			orig[pos] = param
 		}
 		pos--
 	}
-	return str
+	return orig
 }

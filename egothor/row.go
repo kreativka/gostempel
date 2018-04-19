@@ -52,50 +52,43 @@ import (
 	"io"
 )
 
-// Row struct
-type Row struct {
-	cells map[rune]Cell
+type row struct {
+	cells map[rune]*cell
 }
 
-// NewRow returns row
-func NewRow(r io.Reader) (*Row, error) {
-	nr := Row{cells: make(map[rune]Cell)}
+func newRow(r io.Reader) (*row, error) {
+	rv := &row{cells: make(map[rune]*cell)}
 	br := &errBinaryReader{r: r}
 	var i int32
 	var ch int16
-	var c Cell
 
 	br.Read(&i)
 	for ; i > 0; i-- {
 		br.Read(&ch)
-		br.Read(&c)
-		nr.AddCell(rune(ch), c)
+		c, err := newCell(r)
+		if err != nil {
+			return nil, err
+		}
+		rv.cells[rune(ch)] = c
 	}
 	err := br.Err()
 	if err != nil {
 		return nil, err
 	}
-	return &nr, nil
+	return rv, nil
 }
 
-// AddCell appends cell
-func (r *Row) AddCell(c rune, cell Cell) {
-	r.cells[c] = cell
-}
-
-// Cmd returns cmd or -1
-func (r Row) Cmd(c rune) int32 {
+func (r *row) cmd(c rune) int32 {
 	return r.getCellValue(c, "cmd")
 }
 
-// Ref returns ref or -1
-func (r Row) Ref(c rune) int32 {
+func (r *row) ref(c rune) int32 {
 	return r.getCellValue(c, "ref")
 }
 
 // getCellValue returns value from cell struct
 // or -1 if there is no cell
-func (r Row) getCellValue(c rune, field string) int32 {
+func (r *row) getCellValue(c rune, field string) int32 {
 	cell, ok := r.cells[c]
 	if !ok {
 		return -1
@@ -105,16 +98,4 @@ func (r Row) getCellValue(c rune, field string) int32 {
 		return cell.Cmd
 	}
 	return cell.Ref
-	// switch field {
-	// case "cmd":
-	// 	return cell.Cmd()
-	// case "cnt":
-	// 	return cell.Cnt()
-	// case "ref":
-	// 	return cell.Ref()
-	// case "skip":
-	// 	return cell.Skip()
-	// default:
-	// 	return -1
-	// }
 }

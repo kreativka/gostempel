@@ -10,6 +10,8 @@ pipeline:
   test:
     image: ${GO_VERSION}
     commands:
+      - go test -test.v github.com/kreativka/gostempel/javautf
+      - go test -test.v github.com/kreativka/gostempel/egothor
       - go test -test.v
   benchmark:
     image: ${GO_VERSION}
@@ -18,7 +20,6 @@ pipeline:
 
 matrix:
   GO_VERSION:
-    - golang:1.7
     - golang:1.8
     - golang:1.9
-    - golang:latest
+    - golang:1.10

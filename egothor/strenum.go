@@ -48,29 +48,33 @@
 
 package egothor
 
-// StrEnum struct
-type StrEnum struct {
+import "io"
+
+type strEnum struct {
 	by   int
 	from int
-	str  []rune
+	r    []rune
 }
 
-// NewStrEnum returns new StrEnum
-func NewStrEnum(token []rune, up bool) *StrEnum {
-	s := StrEnum{str: token}
-	if up {
-		s.from = 0
-		s.by = 1
+func newStrEnum(str []rune, up bool) *strEnum {
+	rv := &strEnum{
+		r: str,
 	}
-	s.from = len(token) - 1
-	s.by = -1
-	return &s
+	if up {
+		rv.from = 0
+		rv.by = 1
+	} else {
+		rv.from = len(str) - 1
+		rv.by = -1
+	}
+	return rv
 }
 
-// Next returns rune from []rune
-// Also moves next rune by 1
-func (s *StrEnum) Next() rune {
-	c := s.str[s.from]
+func (s *strEnum) next() (rune, error) {
+	if s.from < 0 || s.from >= len(s.r) {
+		return 0, io.EOF
+	}
+	rv := s.r[s.from]
 	s.from += s.by
-	return c
+	return rv, nil
 }

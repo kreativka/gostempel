@@ -48,10 +48,23 @@
 
 package egothor
 
-// Cell in a Row of a Trie
-type Cell struct {
+import (
+	"io"
+)
+
+type cell struct {
 	Cmd  int32
 	Cnt  int32
 	Ref  int32
 	Skip int32
+}
+
+func newCell(r io.Reader) (*cell, error) {
+	var c cell
+	br := &errBinaryReader{r: r}
+	br.Read(&c)
+	if err := br.Err(); err != nil {
+		return nil, err
+	}
+	return &c, nil
 }

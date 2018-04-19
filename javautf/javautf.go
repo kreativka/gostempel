@@ -1,4 +1,4 @@
-package javautf
+package javautf // import "github.com/kreativka/gostempel/javautf"
 
 import (
 	"bytes"

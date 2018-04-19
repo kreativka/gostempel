@@ -87,10 +87,10 @@ func benchmarkStem(s []rune, b *testing.B) {
 	}
 }
 
-func BenchmarkStemPowyciagajacy(b *testing.B)  { benchmarkStem([]rune("powyciągający"), b) }
-func BenchmarkStemAchen(b *testing.B)          { benchmarkStem([]rune("aachen"), b) }
-func BenchmarkStemCiupciajacy(b *testing.B)    { benchmarkStem([]rune("ciupciający"), b) }
-func BenchmarkStemZmiim(b *testing.B)          { benchmarkStem([]rune("żmiim"), b) }
-func BenchmarkStemKupilem(b *testing.B)        { benchmarkStem([]rune("kupiłem"), b) }
-func BenchmarkStemUderzajac(b *testing.B)      { benchmarkStem([]rune("uderzając"), b) }
-func BenchmarkStemNiedokrwistosc(b *testing.B) { benchmarkStem([]rune("niedokrwistość"), b) }
+func BenchmarkStemAachen(b *testing.B)       { benchmarkStem([]rune("aachen"), b) }
+func BenchmarkStemJezdze(b *testing.B)       { benchmarkStem([]rune("jeżdżę"), b) }
+func BenchmarkStemKupilem(b *testing.B)      { benchmarkStem([]rune("kupiłem"), b) }
+func BenchmarkStemNiedokupilem(b *testing.B) { benchmarkStem([]rune("niedokupiłem"), b) }
+func BenchmarkStemUderzajac(b *testing.B)    { benchmarkStem([]rune("uderzając"), b) }
+func BenchmarkStemZabijajac(b *testing.B)    { benchmarkStem([]rune("zabijając"), b) }
+func BenchmarkStemZmiim(b *testing.B)        { benchmarkStem([]rune("żmiim"), b) }

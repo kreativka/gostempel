@@ -46,7 +46,7 @@
 // individuals  on  behalf  of  the  Egothor  Project  and was originally
 // created by Leo Galambos (Leo.G@seznam.cz).
 
-package egothor
+package egothor // import "github.com/kreativka/gostempel/egothor"
 
 import (
 	"fmt"
@@ -55,106 +55,95 @@ import (
 	"github.com/kreativka/gostempel/javautf"
 )
 
-// Tries wraps tries
-type Tries interface {
-	GetLastOnPath([]rune) ([]rune, bool)
-}
-
-// Trie implements Tries interface
+// Trie implements egothor trie
 type Trie struct {
 	cmds    [][]rune
 	forward bool
 	root    int32
-	rows    []*Row
+	rows    []*row
 }
 
-// NewTrie returns trie
+// NewTrie returns egothor Trie
 func NewTrie(r io.Reader) (*Trie, error) {
-	t := Trie{}
+	rv := &Trie{}
 	br := &errBinaryReader{r: r}
 
-	// Boilerplate for reading bools on go 1.7
-	var fr uint8
-	br.Read(&fr)
-	t.forward = !(fr == 0)
-	// br.Read(&t.forward)
-	br.Read(&t.root)
+	br.Read(&rv.forward)
+	br.Read(&rv.root)
 
 	var i int32
 	br.Read(&i)
-	for ; i > 0; i-- {
+	for i > 0 {
 		cmd, err := javautf.ReadUTF(r)
 		if err != nil {
 			return nil, err
 		}
-		t.AddCmds([]rune(cmd))
+		rv.cmds = append(rv.cmds, []rune(cmd))
+		i--
 	}
 
 	br.Read(&i)
-	for ; i > 0; i-- {
-		nr, err := NewRow(r)
+	for i > 0 {
+		row, err := newRow(r)
 		if err != nil {
 			return nil, err
 		}
 
-		t.AddRow(nr)
+		rv.rows = append(rv.rows, row)
+		i--
 	}
 	err := br.Err()
 	if err != nil {
 		return nil, err
 	}
-	return &t, nil
-}
-
-// AddRow adds row
-func (t *Trie) AddRow(row *Row) {
-	t.rows = append(t.rows, row)
-}
-
-// AddCmds adds cmd to cmds
-func (t *Trie) AddCmds(cmd []rune) {
-	t.cmds = append(t.cmds, cmd)
+	return rv, nil
 }
 
 // GetLastOnPath returns patch commands
-func (t Trie) GetLastOnPath(key []rune) ([]rune, bool) {
-	var l []rune // last
-	var ok bool
+func (t *Trie) GetLastOnPath(key []rune) []rune {
+	var last []rune
 
-	now, err := t.Row(t.root)
+	now, err := t.row(t.root)
 	if err != nil {
-		return l, ok
+		return last
 	}
 
 	var w int32
-	se := NewStrEnum(key, t.forward)
+	e := newStrEnum(key, t.forward)
 	for i := 0; i < len(key)-1; i++ {
-		c := se.Next()
-		w = now.Cmd(c)
+		r, err := e.next()
+		if err != nil {
+			return last
+		}
+		w = now.cmd(r)
 		if w >= 0 {
-			l = t.cmds[w]
-			ok = true
+			last = t.cmds[w]
 		}
 
-		w = now.Ref(c)
+		w = now.ref(r)
 		if w >= 0 {
-			now, err = t.Row(w)
+			now, err = t.row(w)
 			if err != nil {
-				return l, ok
+				return last
 			}
 		} else {
-			return l, ok
+			return last
 		}
 	}
-	w = now.Cmd(se.Next())
-	if w >= 0 {
-		return t.cmds[w], true
+	r, err := e.next()
+	if err != nil {
+		return last
 	}
-	return l, ok
+
+	w = now.cmd(r)
+	if w >= 0 {
+		return t.cmds[w]
+	}
+	return last
 }
 
 // Row returns row from trie
-func (t Trie) Row(i int32) (*Row, error) {
+func (t *Trie) row(i int32) (*row, error) {
 	if i < 0 || i >= int32(len(t.rows)) {
 		err := fmt.Errorf("row %d not found", i)
 		return nil, err

@@ -49,10 +49,11 @@
 package egothor
 
 import (
+	"fmt"
 	"io"
 )
 
-// MultiTrie struct
+// MultiTrie implements egothor MultiTrie
 type MultiTrie struct {
 	by      int32
 	eom     rune
@@ -60,77 +61,72 @@ type MultiTrie struct {
 	tries   []*Trie
 }
 
-// NewMultiTrie returns MultiTrie
+// NewMultiTrie returns egothor MultiTrie
 func NewMultiTrie(r io.Reader) (*MultiTrie, error) {
-	var mt MultiTrie
+	rv := &MultiTrie{}
 	br := &errBinaryReader{r: r}
-	mt.eom = '*'
+	rv.eom = '*'
 
-	// Boilerplate for reading bools on go 1.7
-	var fr uint8
-	br.Read(&fr)
-	mt.forward = !(fr == 0)
-	// br.Read(&mt.forward)
-	br.Read(&mt.by)
+	br.Read(&rv.forward)
+	br.Read(&rv.by)
 
 	var i int32
 	br.Read(&i)
-	for ; i > 0; i-- {
-		t, err := NewTrie(r)
+	for i > 0 {
+		trie, err := NewTrie(r)
 		if err != nil {
 			return nil, err
 		}
 
-		mt.Add(t)
+		rv.tries = append(rv.tries, trie)
+		i--
 	}
 	err := br.Err()
 	if err != nil {
 		return nil, err
 	}
-	return &mt, nil
-}
-
-// Add appends trie to tries
-func (m *MultiTrie) Add(trie *Trie) {
-	m.tries = append(m.tries, trie)
+	return rv, nil
 }
 
 // GetLastOnPath returns patch commands
-func (m *MultiTrie) GetLastOnPath(key []rune) ([]rune, bool) {
-	var res []rune            // Result
-	lk := key                 // Last Key
-	lc := rune(' ')           // Last char
+func (t *MultiTrie) GetLastOnPath(key []rune) []rune {
+	var rv []rune
+	lastKey := key
+	lastR := rune(' ')
 	p := make(map[int][]rune) // Patch commands
 
-	for i := 0; i < len(m.tries); i++ {
-		r, ok := m.tries[i].GetLastOnPath(lk)
-		if !ok || (r[0] == m.eom && len(r) == 1) {
-			return res, true
+	for i := 0; i < len(t.tries); i++ {
+		r := t.tries[i].GetLastOnPath(lastKey)
+		if len(r) == 0 || len(r) == 1 || r[0] == t.eom {
+			return rv
 		}
 
-		if cannotFollow(lc, r[0]) {
-			return res, false
+		if cannotFollow(lastR, r[0]) {
+			return rv
 		}
-		lc = r[len(r)-2]
+		lastR = r[len(r)-2]
 
 		p[i] = r
 		if p[i][0] == '-' {
 			if i > 0 {
-				if key, ok = m.skip(key, lenPP(p[i-1])); !ok {
-					return res, true
+				var err error
+				key, err = t.skip(key, lengthPP(p[i-1]))
+				if err != nil {
+					return rv
 				}
 			}
-			if key, ok = m.skip(key, lenPP(p[i])); !ok {
-				return res, true
+			var err error
+			key, err = t.skip(key, lengthPP(p[i]))
+			if err != nil {
+				return rv
 			}
 		}
-		res = append(res, r...)
-
+		rv = append(rv, r...)
 		if len(key) != 0 {
-			lk = key
+			lastKey = key
 		}
 	}
-	return res, true
+	return rv
 }
 
 func cannotFollow(after, goes rune) bool {
@@ -140,29 +136,29 @@ func cannotFollow(after, goes rune) bool {
 	return false
 }
 
-func (m MultiTrie) skip(in []rune, count int) ([]rune, bool) {
-	if len(in)-count < 0 {
-		return []rune(""), false
+var errIndexOutOfBounds = fmt.Errorf("index out of bounds")
+
+func (t *MultiTrie) skip(in []rune, count int) ([]rune, error) {
+	if count > len(in) {
+		return []rune(""), errIndexOutOfBounds
 	}
 
-	if m.forward {
-		return in[count:], true
+	if t.forward {
+		return in[count:], nil
 	}
-	return in[:len(in)-count], true
+	return in[:len(in)-count], nil
 }
 
-func lenPP(cmd []rune) int {
-	l := 0 // length
+func lengthPP(cmd []rune) int {
+	rv := 0
 	for i, c := range cmd {
 		i++
 		switch c {
-		case '-':
-			l += int(cmd[i]) - 'a' + 1
-		case 'D':
-			l += int(cmd[i]) - 'a' + 1
+		case '-', 'D':
+			rv += int(cmd[i] - 'a' + 1)
 		case 'R':
-			l++
+			rv++
 		}
 	}
-	return l
+	return rv
 }
