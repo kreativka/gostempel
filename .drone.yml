@@ -1,25 +1,19 @@
-workspace:
-  base: /go
-  path: src/github.com/kreativka/gostempel
+kind: pipeline
+name: default
 
-pipeline:
-  deps:
-    image: ${GO_VERSION}
+steps:
+  - name: deps
+    image: golang
+    pull: allways
     commands:
-      - go get
-  test:
-    image: ${GO_VERSION}
+    - go get
+  - name: test
+    image: golang
+    pull: allways
     commands:
-      - go test -test.v github.com/kreativka/gostempel/javautf
-      - go test -test.v github.com/kreativka/gostempel/egothor
-      - go test -test.v
-  benchmark:
-    image: ${GO_VERSION}
+    - go test -test.v ./...
+  - name: benchmark
+    image: golang
+    pull: allways
     commands:
-      - go test -bench=. -benchmem
-
-matrix:
-  GO_VERSION:
-    - golang:1.8
-    - golang:1.9
-    - golang:1.10
+    - go test -bench=. -benchmem
