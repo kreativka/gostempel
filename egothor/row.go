@@ -49,53 +49,49 @@
 package egothor
 
 import (
-	"io"
+	"fmt"
+
+	"github.com/blevesearch/stempel/javadata"
 )
 
 type row struct {
 	cells map[rune]*cell
 }
 
-func newRow(r io.Reader) (*row, error) {
+func newRow(r *javadata.Reader) (*row, error) {
 	rv := &row{cells: make(map[rune]*cell)}
-	br := &errBinaryReader{r: r}
-	var i int32
-	var ch int16
 
-	br.Read(&i)
-	for ; i > 0; i-- {
-		br.Read(&ch)
+	i, err := r.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("error reading number of cells: %v", err)
+	}
+	for i > 0 {
+		ch, err := r.ReadCharAsRune()
+		if err != nil {
+			return nil, fmt.Errorf("error reading cell char: %v", err)
+		}
 		c, err := newCell(r)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error reading cell: %v", err)
 		}
-		rv.cells[rune(ch)] = c
-	}
-	err := br.Err()
-	if err != nil {
-		return nil, err
+		rv.cells[ch] = c
+		i--
 	}
 	return rv, nil
 }
 
 func (r *row) cmd(c rune) int32 {
-	return r.getCellValue(c, "cmd")
-}
-
-func (r *row) ref(c rune) int32 {
-	return r.getCellValue(c, "ref")
-}
-
-// getCellValue returns value from cell struct
-// or -1 if there is no cell
-func (r *row) getCellValue(c rune, field string) int32 {
 	cell, ok := r.cells[c]
 	if !ok {
 		return -1
 	}
+	return cell.cmd
+}
 
-	if field == "cmd" {
-		return cell.Cmd
+func (r *row) ref(c rune) int32 {
+	cell, ok := r.cells[c]
+	if !ok {
+		return -1
 	}
-	return cell.Ref
+	return cell.ref
 }

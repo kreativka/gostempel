@@ -63,7 +63,8 @@ var stemTest = []struct {
 	//{"żzw", "żzwa"},
 }
 
-var f = "./stemmer_20000.tbl"
+const f = "./stemmer_20000.tbl"
+
 var stemmer, _ = LoadStemmer(f)
 
 func TestStem(t *testing.T) {

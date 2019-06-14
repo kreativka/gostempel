@@ -48,14 +48,15 @@
 
 package egothor
 
-// DiffApply returns string
-func DiffApply(orig []rune, diff []rune) []rune {
+// DiffApply returns stemmed token, after applying all patch commands.
+func DiffApply(dest []rune, diff []rune) []rune {
 	if len(diff) == 0 {
-		return orig
+		return dest
 	}
-	pos := len(orig) - 1
+
+	pos := len(dest) - 1
 	if pos < 0 {
-		return orig
+		return dest
 	}
 
 	for i := 0; i < len(diff)/2; i++ {
@@ -65,28 +66,28 @@ func DiffApply(orig []rune, diff []rune) []rune {
 		case '-':
 			pos = pos - parNum + 1
 		case 'R':
-			if pos < 0 || pos >= len(orig) {
-				return orig
+			if pos < 0 || pos >= len(dest) {
+				return dest
 			}
-			orig[pos] = param
+			dest[pos] = param
 		case 'D':
 			pos -= parNum - 1
-			if pos < 0 || pos >= len(orig) {
-				return orig
+			if pos < 0 || pos >= len(dest) {
+				return dest
 			}
-			copy(orig[pos:], orig[pos+parNum:])
-			orig[len(orig)-parNum] = '\x00'
-			orig = orig[:len(orig)-parNum]
+			copy(dest[pos:], dest[pos+parNum:])
+			dest[len(dest)-parNum] = '\x00'
+			dest = dest[:len(dest)-parNum]
 		case 'I':
 			pos++
 			if pos < 0 {
-				return orig
+				return dest
 			}
-			orig = append(orig, 0)
-			copy(orig[pos+1:], orig[pos:])
-			orig[pos] = param
+			dest = append(dest, 0)
+			copy(dest[pos+1:], dest[pos:])
+			dest[pos] = param
 		}
 		pos--
 	}
-	return orig
+	return dest
 }

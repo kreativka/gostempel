@@ -1,11 +1,12 @@
 package gostempel // import "github.com/kreativka/gostempel"
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
+	"github.com/blevesearch/stempel/javadata"
 	"github.com/kreativka/gostempel/egothor"
-	"github.com/kreativka/gostempel/javautf"
 )
 
 // Trie interface for egothor trie
@@ -16,7 +17,7 @@ type Trie interface {
 // Minimum length of token
 const minTokenLength = 3
 
-// Stem returns stem from given token
+// Stem returns stem from a given token
 func Stem(stem Trie, token []rune) []rune {
 	// Don't stem tokens less than 3 chars and empty tokens
 	if token == nil || len(token) <= minTokenLength {
@@ -47,22 +48,22 @@ func LoadStemmer(filename string) (Trie, error) {
 		_ = f.Close()
 	}()
 
-	// Read method from stem file
-	method, err := javautf.ReadUTF(f)
+	r := javadata.NewReader(f)
+	method, err := r.ReadUTF()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error reading method value: %v", err)
 	}
 
 	var rv Trie
 	if strings.HasPrefix(method, "-0ME2") {
-		rv, err = egothor.NewMultiTrie(f)
+		rv, err = egothor.NewMultiTrie(r)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error creating egothor trie: %v", err)
 		}
 	} else {
-		rv, err = egothor.NewTrie(f)
+		rv, err = egothor.NewTrie(r)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error creating egothor trie: %v", err)
 		}
 	}
 	return rv, nil

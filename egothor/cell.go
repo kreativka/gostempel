@@ -49,22 +49,34 @@
 package egothor
 
 import (
-	"io"
+	"fmt"
+
+	"github.com/blevesearch/stempel/javadata"
 )
 
 type cell struct {
-	Cmd  int32
-	Cnt  int32
-	Ref  int32
-	Skip int32
+	cmd int32
+	// cnt  int32
+	ref int32
+	// skip int32
 }
 
-func newCell(r io.Reader) (*cell, error) {
-	var c cell
-	br := &errBinaryReader{r: r}
-	br.Read(&c)
-	if err := br.Err(); err != nil {
-		return nil, err
+func newCell(r *javadata.Reader) (*cell, error) {
+	cmd, err := r.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("error reading cell cmd value: %v", err)
 	}
-	return &c, nil
+	_, err = r.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("error reading cell cnt value: %v", err)
+	}
+	ref, err := r.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("error reading cell ref value: %v", err)
+	}
+	_, err = r.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("error reading cell skip value: %v", err)
+	}
+	return &cell{cmd: cmd, ref: ref}, nil
 }

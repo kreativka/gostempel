@@ -50,9 +50,8 @@ package egothor // import "github.com/kreativka/gostempel/egothor"
 
 import (
 	"fmt"
-	"io"
 
-	"github.com/kreativka/gostempel/javautf"
+	"github.com/blevesearch/stempel/javadata"
 )
 
 // Trie implements egothor trie
@@ -63,52 +62,59 @@ type Trie struct {
 	rows    []*row
 }
 
-// NewTrie returns egothor Trie
-func NewTrie(r io.Reader) (*Trie, error) {
+// NewTrie returns egothor trie
+func NewTrie(r *javadata.Reader) (*Trie, error) {
+	var err error
 	rv := &Trie{}
-	br := &errBinaryReader{r: r}
 
-	br.Read(&rv.forward)
-	br.Read(&rv.root)
+	rv.forward, err = r.ReadBool()
+	if err != nil {
+		return nil, fmt.Errorf("error reading forward value: %v", err)
+	}
 
-	var i int32
-	br.Read(&i)
+	rv.root, err = r.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("error reading root value: %v", err)
+	}
+
+	i, err := r.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("error reading number of cmds")
+	}
 	for i > 0 {
-		cmd, err := javautf.ReadUTF(r)
+		cmd, err := r.ReadUTF()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error reading command: %v", err)
 		}
 		rv.cmds = append(rv.cmds, []rune(cmd))
 		i--
 	}
 
-	br.Read(&i)
+	i, err = r.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("error reading number of rows: %v", err)
+	}
 	for i > 0 {
 		row, err := newRow(r)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error reading row: %v", err)
 		}
 
 		rv.rows = append(rv.rows, row)
 		i--
 	}
-	err := br.Err()
-	if err != nil {
-		return nil, err
-	}
 	return rv, nil
 }
 
-// GetLastOnPath returns patch commands
+// GetLastOnPath returns patch commands to apply by DiffApply to get stemmed
+// token.
+// This walks rune by rune in key through rows, checking for commands. When
+// it reaches end of string, return commands from this row or if empty return
+// last set of commands.
 func (t *Trie) GetLastOnPath(key []rune) []rune {
 	var last []rune
-
-	now, err := t.row(t.root)
-	if err != nil {
-		return last
-	}
-
 	var w int32
+	now := t.row(t.root)
 	e := newStrEnum(key, t.forward)
 	for i := 0; i < len(key)-1; i++ {
 		r, err := e.next()
@@ -122,10 +128,7 @@ func (t *Trie) GetLastOnPath(key []rune) []rune {
 
 		w = now.ref(r)
 		if w >= 0 {
-			now, err = t.row(w)
-			if err != nil {
-				return last
-			}
+			now = t.row(w)
 		} else {
 			return last
 		}
@@ -134,7 +137,6 @@ func (t *Trie) GetLastOnPath(key []rune) []rune {
 	if err != nil {
 		return last
 	}
-
 	w = now.cmd(r)
 	if w >= 0 {
 		return t.cmds[w]
@@ -142,11 +144,9 @@ func (t *Trie) GetLastOnPath(key []rune) []rune {
 	return last
 }
 
-// Row returns row from trie
-func (t *Trie) row(i int32) (*row, error) {
+func (t *Trie) row(i int32) *row {
 	if i < 0 || i >= int32(len(t.rows)) {
-		err := fmt.Errorf("row %d not found", i)
-		return nil, err
+		return nil
 	}
-	return t.rows[i], nil
+	return t.rows[i]
 }

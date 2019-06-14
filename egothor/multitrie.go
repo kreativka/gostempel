@@ -50,62 +50,67 @@ package egothor
 
 import (
 	"fmt"
-	"io"
+
+	"github.com/blevesearch/stempel/javadata"
 )
+
+// End of message
+const eom = '*'
 
 // MultiTrie implements egothor MultiTrie
 type MultiTrie struct {
 	by      int32
-	eom     rune
 	forward bool
 	tries   []*Trie
 }
 
 // NewMultiTrie returns egothor MultiTrie
-func NewMultiTrie(r io.Reader) (*MultiTrie, error) {
+func NewMultiTrie(r *javadata.Reader) (*MultiTrie, error) {
+	var err error
 	rv := &MultiTrie{}
-	br := &errBinaryReader{r: r}
-	rv.eom = '*'
 
-	br.Read(&rv.forward)
-	br.Read(&rv.by)
+	rv.forward, err = r.ReadBool()
+	if err != nil {
+		return nil, fmt.Errorf("error reading forward value: %v", err)
+	}
 
-	var i int32
-	br.Read(&i)
+	rv.by, err = r.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("error reading by value: %v", err)
+	}
+
+	i, err := r.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("error reading number of tries: %v", err)
+	}
 	for i > 0 {
 		trie, err := NewTrie(r)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error reading new trie: %v", err)
 		}
 
 		rv.tries = append(rv.tries, trie)
 		i--
 	}
-	err := br.Err()
-	if err != nil {
-		return nil, err
-	}
 	return rv, nil
 }
 
-// GetLastOnPath returns patch commands
+// GetLastOnPath returns patch commands.
 func (t *MultiTrie) GetLastOnPath(key []rune) []rune {
-	var rv []rune
 	lastKey := key
-	lastR := rune(' ')
-	p := make(map[int][]rune) // Patch commands
+	lastR := ' '
+	p := make(map[int][]rune)
+	var rv []rune
 
 	for i := 0; i < len(t.tries); i++ {
 		r := t.tries[i].GetLastOnPath(lastKey)
-		if len(r) == 0 || len(r) == 1 || r[0] == t.eom {
+		if len(r) == 0 || len(r) == 1 && r[0] == eom {
 			return rv
 		}
-
 		if cannotFollow(lastR, r[0]) {
 			return rv
 		}
 		lastR = r[len(r)-2]
-
 		p[i] = r
 		if p[i][0] == '-' {
 			if i > 0 {
@@ -129,6 +134,16 @@ func (t *MultiTrie) GetLastOnPath(key []rune) []rune {
 	return rv
 }
 
+func (t *MultiTrie) skip(in []rune, count int) ([]rune, error) {
+	if count > len(in) {
+		return nil, fmt.Errorf("index out of bounds")
+	}
+	if t.forward {
+		return in[count:], nil
+	}
+	return in[:len(in)-count], nil
+}
+
 func cannotFollow(after, goes rune) bool {
 	if after == '-' || after == 'D' {
 		return after == goes
@@ -136,28 +151,18 @@ func cannotFollow(after, goes rune) bool {
 	return false
 }
 
-var errIndexOutOfBounds = fmt.Errorf("index out of bounds")
-
-func (t *MultiTrie) skip(in []rune, count int) ([]rune, error) {
-	if count > len(in) {
-		return []rune(""), errIndexOutOfBounds
-	}
-
-	if t.forward {
-		return in[count:], nil
-	}
-	return in[:len(in)-count], nil
-}
-
 func lengthPP(cmd []rune) int {
 	rv := 0
-	for i, c := range cmd {
-		i++
-		switch c {
+	for i := 0; i < len(cmd); i++ {
+		switch cmd[i] {
 		case '-', 'D':
+			i++
 			rv += int(cmd[i] - 'a' + 1)
 		case 'R':
+			i++
 			rv++
+			fallthrough
+		case 'I':
 		}
 	}
 	return rv
